@@ -174,6 +174,16 @@ package object config {
       .stringConf
       .createOptional
 
+  private[spark] val DRIVER_USE_EXTERNAL_URI_PROVIDER =
+    ConfigBuilder("spark.kubernetes.driver.useExternalUriProvider")
+      .doc(
+        """
+          | Use a separate process to determine the external URI of the driver pod's
+          | bootstrap server.
+        """.stripMargin)
+      .booleanConf
+      .createWithDefault(false)
+
   private[spark] val WAIT_FOR_APP_COMPLETION =
     ConfigBuilder("spark.kubernetes.submit.waitAppCompletion")
       .doc(

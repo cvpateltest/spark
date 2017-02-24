@@ -106,6 +106,33 @@ The above mechanism using `kubectl proxy` can be used when we have authenticatio
 kubernetes-client library does not support. Authentication using X509 Client Certs and oauth tokens
 is currently supported.
 
+### Determining the Driver Base URI
+
+Kubernetes pods run with their own IP address space. If Spark is run in cluster mode, the driver pod may not be
+accessible to the submitter. However, the submitter needs to send local dependencies from its local disk to the driver
+pod.
+
+By default, Spark will place a [Service](https://kubernetes.io/docs/user-guide/services/#type-nodeport) with a NodePort
+that is opened on every Kubelet. The submission client will then contact the driver at one of the node's addresses with
+the appropriate service port.
+
+There may be cases where the Kubelet nodes cannot be reached by the submission client. For example, the cluster may
+only be reachable through an external load balancer. The user may provide their own external IP for Spark driver
+services. To use a your own external IP instead of a Kubelet's IP, first set
+`spark.kubernetes.driver.useExternalUriProvider` to `true`. This will cause a service to be created that routes to the
+driver pod with the annotation `spark-job.alpha.apache.org/provideExternalUri`. You will need to run a process that
+watches the API server for services that are created with this annotation in the application's namespace (set by
+`spark.kubernetes.namespace`). The process should determine a URI that routes to this service, and patch the service to
+include an annotation `spark-job.alpha.apache.org/resolvedExternalUri`, which has its value as the external URI
+that your process has provided.
+
+Note that if the URI provided by the annotation also provides a base path, the base path should be removed when the
+request is forwarded to the back end pod.
+
+If the above is confusing, keep in mind that this functionality is only necessary if the submitter cannot reach any of
+the Kubelets at the driver's node port. It is recommended to use the default configuration with the node port service
+whenever possible.
+
 ### Spark Properties
 
 Below are some other common properties that are specific to Kubernetes. Most of the other configurations are the same
@@ -199,9 +226,17 @@ from the other deployment modes. See the [configuration page](configuration.html
   <td><code>false</code></td>
   <td>
     Whether to expose the driver Web UI port as a service NodePort. Turned off by default because NodePort is a limited
-    resource. Use alternatives such as Ingress if possible.
+    resource.
   </td>
 </tr>
+<tr>
+  <td><code>`spark.kubernetes.driver.useExternalUriProvider`</code></td>
+  <td><code>false</code></td>
+  <td>
+    (Advanced) Use a separate process to determine the external URI of the driver pod's bootstrap server.
+  </td>
+</tr>
+
 </table>
 
 ## Current Limitations
